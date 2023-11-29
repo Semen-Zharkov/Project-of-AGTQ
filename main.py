@@ -1,34 +1,37 @@
 from langchain.chains import LLMChain
 from langchain.document_loaders import TextLoader
-from langchain.output_parsers.json import SimpleJsonOutputParser
 from langchain.chat_models.gigachat import GigaChat
 from langchain.text_splitter import CharacterTextSplitter
-from config import Config, load_config
-from prompts.v1_prompt_template import prompt1
+from config import load_config, Config
+from utils.create_prompts import create_prompt
+from prompt_stats.get_stats import get_statistics
+from random import randint
 
 
-config: Config = load_config()
-giga = GigaChat(credentials=config.GIGA_CREDENTIALS, verify_ssl_certs=False)
+# @get_statistics()
+def main(file_path: str, prompt_path: str, que_num: int):
+    config: Config = load_config()
+
+    giga: GigaChat = GigaChat(credentials=config.GIGA_CREDENTIALS, verify_ssl_certs=False)
+
+    document = TextLoader(file_path, encoding='utf-8').load()
+    split_docs = (CharacterTextSplitter(separator='\n', chunk_size=39000, chunk_overlap=0)
+                  .split_documents(document))
+
+    prompt = create_prompt(prompt_path)
+    chain = LLMChain(llm=giga, prompt=prompt)
+
+    if sum(len(i.page_content) for i in split_docs) > 39000:
+        res = ''
+        for i in range(que_num):
+            res += chain.run(num=1, text=split_docs[randint(0, len(split_docs)) - 1]) + '\n\n'
+        return res
+    else:
+        chain.run(num=que_num, text=split_docs)
 
 
-# С*** ПУТЬ К ФАЙЛУ
-PATH = 'data/111.txt'
-
-documents = TextLoader(PATH, encoding='utf-8').load()
-split_docs = CharacterTextSplitter(chunk_size=3000, chunk_overlap=100).split_documents(documents)
-
-
-# chain = LLMChain(llm=giga, prompt=prompt1, output_parser=SimpleJsonOutputParser())
-# print(chain.run(text=split_docs, num=3))
-
-res = ''
-for doc in split_docs:
-    temp = giga(
-        prompt1.format_prompt(
-            que_num=2,
-            text=doc,
-        ).to_messages()
-    ).content
-    res += f'{temp}\n\n'
-
-print(res)
+if __name__ == '__main__':
+    PROMPT_PATH = 'prompts/generate_question_prompt.yaml'
+    PATH = 'data/crime3.txt'
+    questions_number = 3
+    print(main(PATH, PROMPT_PATH, questions_number))
