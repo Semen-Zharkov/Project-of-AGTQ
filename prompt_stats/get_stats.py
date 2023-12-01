@@ -1,6 +1,8 @@
 from functools import wraps
+import os
 import csv
 import yaml
+import time
 
 
 def is_format_followed(string: str, que_num: int) -> tuple[bool, bool]:
@@ -16,6 +18,8 @@ def is_format_followed(string: str, que_num: int) -> tuple[bool, bool]:
 
 
 def read_yaml(path_yaml: str) -> str:
+    if not path_yaml:
+        return '-'
     with open(path_yaml, encoding='utf-8') as fh:
         dict_data = yaml.safe_load(fh)
         template = dict_data['template']
@@ -27,16 +31,32 @@ def get_doc_length(path_doc: str) -> int:
         return len(file.read())
 
 
+def get_tokens(s1: str, s2: str, s3: str, ln: int) -> int:
+    sm = sum(map(len, [s1, s2, s3])) + ln
+    return (sm // 3 + sm // 4) // 2
+
+
 def get_statistics():
     def func_decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            templ = read_yaml(args[1])
+            sys_templ = read_yaml(args[1])
+            usr_templ = read_yaml(args[2])
+            length = get_doc_length(args[0])
+            start_time = time.time()
             res = func(*args, **kwargs)
+            res_time = time.time() - start_time
+            tokens = get_tokens(usr_templ, sys_templ, res, length)
+            if not os.path.isfile('prompt_stats/statistics.csv'):
+                with open('prompt_stats/statistics.csv', 'w', encoding='cp1251') as file:
+                    file.write(''.join(['file_name;prompt_name;document_length;format_followed;',
+                                       'question_number_correct;lead_time;spent_tokens;sys_prompt_template;',
+                                        'usr_prompt_template;returned\n']))
             with open('prompt_stats/statistics.csv', 'a+', encoding='cp1251', newline='') as stats:
                 writer = csv.writer(stats, delimiter=';')
                 writer.writerow(
-                    [args[0], args[1], get_doc_length(args[0]), *is_format_followed(res, args[2]), templ, res]
+                    [args[0], args[1], length, *is_format_followed(res, args[3]),
+                     res_time, tokens, sys_templ, usr_templ, res]
                 )
             return res
 
