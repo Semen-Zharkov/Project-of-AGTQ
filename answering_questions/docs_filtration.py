@@ -1,15 +1,12 @@
+from typing import Any
+from langchain.document_loaders import TextLoader
 from langchain.embeddings import GPT4AllEmbeddings
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import EmbeddingsFilter
 from langchain.schema import Document
-from langchain.vectorstores import FAISS
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.vectorstores import Chroma
 
 
-def filter_docs(docs: list[Document], question: str) -> list[Document]:
-    embeddings = GPT4AllEmbeddings()
-    retriever = FAISS.from_documents(docs, GPT4AllEmbeddings()).as_retriever()
-    embeddings_filter = EmbeddingsFilter(embeddings=embeddings, similarity_threshold=0.76)
-    compression_retriever = ContextualCompressionRetriever(base_compressor=embeddings_filter, base_retriever=retriever)
-
-    filtered_docs = compression_retriever.get_relevant_documents(question)
-    return filtered_docs
+def filter_docs(split_docs: list[Document], question: str) -> Any:
+    vectorstore = Chroma.from_documents(documents=split_docs, embedding=GPT4AllEmbeddings())
+    docs = vectorstore.similarity_search(question)
+    return docs

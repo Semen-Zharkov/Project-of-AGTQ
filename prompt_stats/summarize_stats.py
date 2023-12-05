@@ -5,7 +5,7 @@ from prompt_stats.get_stats import get_doc_length
 
 def get_summ_tokens(doc_length: int, returned: str) -> int:
     sm = doc_length + len(returned)
-    return (sm // 3 + sm // 4) // 2
+    return (sm // 3 + sm // 2) // 2
 
 
 def get_summarize_stats(func):
